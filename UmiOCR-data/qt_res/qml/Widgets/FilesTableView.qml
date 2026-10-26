@@ -3,8 +3,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Qt.labs.qmlmodels 1.0 // 表格
-import QtGraphicalEffects 1.15 // 子元素圆角
-import QtQuick.Dialogs 1.3 // 文件对话框
+import Qt5Compat.GraphicalEffects // 子元素圆角
 
 Item {
     id: fTableRoot

@@ -84,7 +84,6 @@ configDict为嵌套形式，而originDict与valueDict为展开形式的单层字
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Dialogs 1.3 // 文件对话框
 import "../Widgets"
 
 Item {

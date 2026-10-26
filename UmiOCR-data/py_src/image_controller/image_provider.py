@@ -140,7 +140,12 @@ def _imread(path):
         else:
             return {"type": "error", "data": f"[Warning] ID not in pixmapDict: {path}"}
     elif path.startswith("file:///"):
-        path = path[8:]
+        if len(path) >= 10 and path[9] == ":":
+            path = path[8:]
+        elif not sys.platform.startswith("win32"):
+            path = path[7:]
+        else:
+            path = path[8:]
         if os.path.exists(path):
             try:
                 image = QImage(path)
@@ -219,7 +224,12 @@ def openImage(path):
 # 保存一张图片
 def saveImage(fromPath, toPath):
     if toPath.startswith("file:///"):
-        toPath = toPath[8:]
+        if len(toPath) >= 10 and toPath[9] == ":":
+            toPath = toPath[8:]
+        elif not sys.platform.startswith("win32"):
+            toPath = toPath[7:]
+        else:
+            toPath = toPath[8:]
     im = _imread(fromPath)
     typ, data = im["type"], im["data"]
     if typ == "error":

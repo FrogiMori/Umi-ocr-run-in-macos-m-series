@@ -60,14 +60,21 @@ def runQml(engineAddImportPath):
 
     # ==================== 1. 全局参数设置 ====================
     # 启用 OpenGL 上下文之间的资源共享
-    QGuiApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
+    if hasattr(Qt, "AA_ShareOpenGLContexts"):
+        QGuiApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
     # 启用高分屏自动缩放
-    QGuiApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    if hasattr(Qt, "AA_EnableHighDpiScaling"):
+        QGuiApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     # 初始化渲染器
     app_opengl.initOpengl()
 
     # ==================== 2. 启动qt ====================
-    qtApp = QGuiApplication(sys.argv)
+    try:
+        from PySide2.QtWidgets import QApplication
+
+        qtApp = QApplication(sys.argv)
+    except Exception:
+        qtApp = QGuiApplication(sys.argv)
     qtApp.setApplicationName(UmiAbout["name"])
     qtApp.setOrganizationName(UmiAbout["authors"][0]["name"])
     qtApp.setOrganizationDomain(UmiAbout["url"]["home"])

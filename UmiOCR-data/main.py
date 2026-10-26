@@ -65,23 +65,34 @@ def MessageBox(msg, type_="error"):
         info = "【错误】 Umi-OCR Error"
     elif type_ == "warning":
         info = "【警告】 Umi-OCR Warning"
-    try:
-        # 通过 ctypes 发起弹窗
-        import ctypes
+    if sys.platform.startswith("win32"):
+        try:
+            # 通过 ctypes 发起弹窗
+            import ctypes
 
-        ctypes.windll.user32.MessageBoxW(None, str(msg), str(info), 0)
-    except Exception:
-        # 部分系统，连ctypes也用不了。转为在新的控制台窗口中打印信息。
-        msg_cmd = (
-            msg.replace("^", "^^")
-            .replace("&", "^&")
-            .replace("<", "^<")
-            .replace(">", "^>")
-            .replace("|", "^|")
-            .replace("\n\n", "___")
-            .replace("\n", "___")
-        )
-        subprocess.Popen(["start", "cmd", "/k", f"echo {info}: {msg_cmd}"], shell=True)
+            ctypes.windll.user32.MessageBoxW(None, str(msg), str(info), 0)
+            return 0
+        except Exception:
+            # 部分系统，连ctypes也用不了。转为在新的控制台窗口中打印信息。
+            msg_cmd = (
+                msg.replace("^", "^^")
+                .replace("&", "^&")
+                .replace("<", "^<")
+                .replace(">", "^>")
+                .replace("|", "^|")
+                .replace("\n\n", "___")
+                .replace("\n", "___")
+            )
+            subprocess.Popen(["start", "cmd", "/k", f"echo {info}: {msg_cmd}"], shell=True)
+            return 0
+    elif sys.platform.startswith("darwin"):
+        try:
+            clean_msg = str(msg).replace('"', '\\"').replace("'", "\\'")
+            subprocess.Popen(["osascript", "-e", f'display alert "{info}" message "{clean_msg}"'])
+            return 0
+        except Exception:
+            pass
+    print(f"{info}: {msg}", file=sys.stderr)
     return 0
 
 
@@ -92,16 +103,17 @@ def initRuntimeEnvironment():
     """初始化运行环境"""
 
     # 尝试获取控制台的输出对象
-    try:
-        fd = os.open("CONOUT$", os.O_RDWR | os.O_BINARY)
-        fp = os.fdopen(fd, "w", encoding="utf-8")
-    except Exception as e:
-        fp = open(os.devnull, "w", encoding="utf-8")
-    # 输出流不存在时，重定向到控制台
-    if not sys.stdout:
-        sys.stdout = fp
-    if not sys.stderr:
-        sys.stderr = fp
+    if sys.platform.startswith("win32"):
+        try:
+            fd = os.open("CONOUT$", os.O_RDWR | os.O_BINARY)
+            fp = os.fdopen(fd, "w", encoding="utf-8")
+        except Exception as e:
+            fp = open(os.devnull, "w", encoding="utf-8")
+        # 输出流不存在时，重定向到控制台
+        if not sys.stdout:
+            sys.stdout = fp
+        if not sys.stderr:
+            sys.stderr = fp
     # def except_hook(cls, exception, traceback):
     #     sys.__excepthook__(cls, exception, traceback)
     # sys.excepthook = except_hook
@@ -114,10 +126,44 @@ def initRuntimeEnvironment():
         path = os.path.abspath(os.path.join(cwd, n))
         if os.path.exists(path):
             site.addsitedir(path)
+
+    # 兼容 PySide6: 当系统中安装了 PySide6 而没有 PySide2 时，自动建立别名
+    try:
+        import PySide2
+    except ImportError:
+        import PySide6
+        import PySide6.QtCore
+        import PySide6.QtGui
+        import PySide6.QtQml
+        import PySide6.QtQuick
+
+        # QClipboard 在 PySide6 中不能直接实例化，通过代理对象兼容
+        class _QClipboardProxy:
+            def __getattr__(self, name):
+                from PySide6.QtGui import QGuiApplication
+                clip = QGuiApplication.clipboard()
+                if clip is not None:
+                    return getattr(clip, name)
+                raise RuntimeError("QGuiApplication not yet initialized")
+
+        class _QClipboardCompat:
+            def __new__(cls, *args, **kwargs):
+                return _QClipboardProxy()
+
+        PySide6.QtGui.QClipboard = _QClipboardCompat
+
+        sys.modules["PySide2"] = PySide6
+        sys.modules["PySide2.QtCore"] = PySide6.QtCore
+        sys.modules["PySide2.QtGui"] = PySide6.QtGui
+        sys.modules["PySide2.QtQml"] = PySide6.QtQml
+        sys.modules["PySide2.QtQuick"] = PySide6.QtQuick
+
     # 初始化Qt搜索路径为相对路径，避免上层目录存在中文编码
     from PySide2.QtCore import QCoreApplication
 
-    QCoreApplication.addLibraryPath("./site-packages/PySide2/plugins")
+    pyside_plugins = "./site-packages/PySide2/plugins"
+    if os.path.exists(pyside_plugins):
+        QCoreApplication.addLibraryPath(pyside_plugins)
 
 
 if __name__ == "__main__":
@@ -138,6 +184,8 @@ if __name__ == "__main__":
     try:
         # 获取 pystand.exe 记录的程序入口环境变量
         app_path = os.environ.get("PYSTAND", "")
+        if not app_path:
+            app_path = os.path.abspath(__file__)
         # 启动正式入口
         from py_src.run import main
 

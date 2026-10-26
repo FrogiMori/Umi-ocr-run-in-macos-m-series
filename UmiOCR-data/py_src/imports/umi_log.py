@@ -267,4 +267,14 @@ def change_save_log_level(levelname):
 
 # 打开日志保存目录
 def open_logs_dir():
-    os.startfile(Logs_Dir)
+    try:
+        from platform import Platform
+        Platform.startfile(Logs_Dir)
+    except Exception:
+        import subprocess
+        if sys.platform.startswith("darwin"):
+            subprocess.Popen(["open", Logs_Dir])
+        elif sys.platform.startswith("win32"):
+            os.startfile(Logs_Dir)
+        else:
+            subprocess.Popen(["xdg-open", Logs_Dir])
